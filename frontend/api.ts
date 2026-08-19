@@ -57,12 +57,18 @@ const _startCrawl = callable<[{ options: string }], string>('start_crawl');
 const _stopCrawl = callable<[], string>('stop_crawl');
 const _getTree = callable<[], string>('get_tree');
 const _exportHtml = callable<[], string>('export_html');
+const _saveOptions = callable<[{ options: string }], string>('save_options');
 
 export interface PluginConfig {
 	has_key: boolean;
 	last_root: string;
 	max_node_budget: number;
 	max_depth: number;
+	/** Settings the page last had on screen; also what a profile-page crawl uses. */
+	last_max_depth: number;
+	last_unlimited: boolean;
+	last_node_budget: number;
+	last_friends_per_node: number;
 }
 
 export const getConfig = async (): Promise<PluginConfig> => JSON.parse(await _getConfig());
@@ -77,6 +83,14 @@ export const resolveAccount = async (
 
 export const startCrawl = async (opts: CrawlOptions): Promise<{ ok: boolean; error: string }> =>
 	JSON.parse(await _startCrawl({ options: JSON.stringify(opts) }));
+
+/**
+ * Stores the crawl settings without starting anything, so the button on a
+ * Steam profile page uses the depth and budget currently set on the page.
+ */
+export const saveOptions = async (opts: Omit<CrawlOptions, 'root'>): Promise<void> => {
+	await _saveOptions({ options: JSON.stringify(opts) });
+};
 
 /** Writes the tree to a standalone HTML page and answers with its path. */
 export const exportHtml = async (): Promise<{

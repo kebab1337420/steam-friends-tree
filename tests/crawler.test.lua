@@ -131,6 +131,15 @@ local function check(label, condition, detail)
 end
 
 --- Runs a crawl to completion, returning the final snapshot.
+--- Polls until the crawl in flight stops, whoever started it.
+local function drain()
+	for _ = 1, 200 do
+		local snapshot = decoded(get_tree())
+		if snapshot.status ~= "running" then return snapshot end
+	end
+	error("crawl never finished")
+end
+
 local function run(options)
 	local result = decoded(start_crawl({
 		root = options.root or "1",
@@ -227,6 +236,18 @@ check("profile start takes the profile as root",
 	decoded(start_from_profile({ options = stubs.json.encode({ steamid = "6", persona = "user6" }) })).ok == true)
 check("profile start refuses a missing account",
 	decoded(start_from_profile({ options = stubs.json.encode({ persona = "user6" }) })).ok == false)
+
+-- 7d. settings saved by the page, then reused by the profile-page button
+save_options({ options = stubs.json.encode({
+	max_depth = 1, unlimited = false, node_budget = 42, friends_per_node = 3,
+}) })
+local saved = decoded(get_config())
+check("saved depth read back", saved.last_max_depth == 1, saved.last_max_depth)
+check("saved budget read back", saved.last_node_budget == 42, saved.last_node_budget)
+check("saved friend cap read back", saved.last_friends_per_node == 3, saved.last_friends_per_node)
+start_from_profile({ options = stubs.json.encode({ steamid = "1" }) })
+snapshot = drain()
+check("profile start honours the saved depth", ids(snapshot) == "1,2,3", ids(snapshot))
 
 -- 7c. HTML export
 files["/plugin/tree.html"] = nil

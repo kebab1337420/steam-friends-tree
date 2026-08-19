@@ -46,9 +46,13 @@ so its results never leak into the new tree.
 - **Sans fin** — no depth limit. The friend graph has no natural end, so the
   crawl runs until the account budget is spent or you press Stop.
 
-Both modes are bounded by the account budget (default 400, hard ceiling 20000)
-and, optionally, by a cap on friends kept per account. Whenever a limit cuts the
-walk short, the page says the tree is truncated.
+Both modes are bounded by the account budget (default 5000, hard ceiling 20000)
+and, optionally, by a cap on friends kept per account. The budget is the limit
+that usually bites first: at 400 accounts a crawl of depth 2 is spent on the
+root's own friends and never reaches the second level, so raise it before
+blaming the depth. Whenever a limit cuts the walk short, the page says the tree
+is truncated, and the walk ends there instead of spending a request per account
+it can no longer keep.
 
 One request per expanded account, plus one batched request per 100 accounts for
 names and avatars. A 429 or a 5xx is retried three times; only that one account
@@ -62,7 +66,8 @@ returns the snapshot as it stands.
 
 Profile pages inside the client get a "Tracer l'arbre d'amis" button next to the
 usual profile actions. It roots a crawl on the account being viewed, reusing the
-depth, budget and friend cap the page last ran with, and the client shows a
+depth, budget and friend cap currently set on the page — they are saved as soon
+as the controls change, not only when a crawl is launched — and the client shows a
 toast. Open the "Arbre des amis" page to watch it draw — the walk itself runs in
 the backend either way.
 

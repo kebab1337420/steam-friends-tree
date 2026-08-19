@@ -25,6 +25,11 @@ local API = "https://api.steampowered.com"
 -- it.
 local MAX_NODE_BUDGET = 20000
 local MAX_DEPTH_BUDGET = 12
+-- Used when a crawl arrives without settings, typically from a profile page on
+-- a fresh install. A depth of 2 with a budget of 400 fills up on the root's own
+-- friends and never reaches the second level, which is why both are generous.
+local DEFAULT_DEPTH = 3
+local DEFAULT_NODE_BUDGET = 5000
 local REQUEST_TIMEOUT = 15
 -- Wall-clock budget for one slice of work, in milliseconds. Kept below the
 -- page's poll interval so snapshots stay responsive.
@@ -410,6 +415,12 @@ local function advance()
 	repeat
 		if #state.pending_summaries > 0 then
 			fill_summaries(key)
+		elseif #state.order >= state.node_budget then
+			-- The budget is spent: expanding the rest of the queue costs one
+			-- request per account and cannot add a single node.
+			state.truncated = true
+			state.head = #state.queue + 1
+			break
 		elseif state.head <= #state.queue then
 			expand_one(key)
 		else
@@ -461,14 +472,50 @@ local function payload(value, name)
 	return {}
 end
 
+--- Clamps the four crawl settings, wherever they come from: the page, a saved
+--- config, or the defaults below.
+local function clean_options(options)
+	return {
+		max_depth = math.max(1, math.min(math.floor(tonumber(options.max_depth) or DEFAULT_DEPTH), MAX_DEPTH_BUDGET)),
+		unlimited = (options.unlimited == true or options.unlimited == "true" or options.unlimited == 1),
+		node_budget = math.max(1, math.min(math.floor(tonumber(options.node_budget) or DEFAULT_NODE_BUDGET), MAX_NODE_BUDGET)),
+		friends_per_node = math.max(0, math.floor(tonumber(options.friends_per_node) or 0)),
+	}
+end
+
 function get_config()
 	local cfg = read_config()
+	local last = clean_options({
+		max_depth = cfg.last_max_depth,
+		unlimited = cfg.last_unlimited,
+		node_budget = cfg.last_node_budget,
+		friends_per_node = cfg.last_friends_per_node,
+	})
 	return json.encode({
 		has_key = is_hex_key(cfg.api_key),
 		last_root = cfg.last_root or "",
 		max_node_budget = MAX_NODE_BUDGET,
 		max_depth = MAX_DEPTH_BUDGET,
+		last_max_depth = last.max_depth,
+		last_unlimited = last.unlimited,
+		last_node_budget = last.node_budget,
+		last_friends_per_node = last.friends_per_node,
 	})
+end
+
+--- Persists the crawl settings without starting anything. The page calls this
+--- whenever its controls change, so the button on a Steam profile page walks
+--- with the depth and budget actually on screen instead of the ones the last
+--- launched crawl happened to use.
+function save_options(options)
+	local clean = clean_options(payload(options, "options"))
+	local cfg = read_config()
+	cfg.last_max_depth = clean.max_depth
+	cfg.last_unlimited = clean.unlimited
+	cfg.last_node_budget = clean.node_budget
+	cfg.last_friends_per_node = clean.friends_per_node
+	write_config(cfg)
+	return json.encode({ ok = true })
 end
 
 function set_api_key(api_key)
@@ -517,11 +564,11 @@ local function begin_crawl(options)
 		return json.encode({ ok = false, error = "Cle Web API absente ou invalide." })
 	end
 
-	local depth = math.max(1, math.min(math.floor(tonumber(options.max_depth) or 1), MAX_DEPTH_BUDGET))
-	local budget = math.max(1, math.min(math.floor(tonumber(options.node_budget) or MAX_NODE_BUDGET), MAX_NODE_BUDGET))
-	local per_node = math.max(0, math.floor(tonumber(options.friends_per_node) or 0))
-	local unlimited = options.unlimited
-	unlimited = (unlimited == true or unlimited == "true" or unlimited == 1)
+	local clean = clean_options(options)
+	local depth = clean.max_depth
+	local budget = clean.node_budget
+	local per_node = clean.friends_per_node
+	local unlimited = clean.unlimited
 
 	reset_state()
 	state.status = "running"
@@ -563,10 +610,10 @@ function start_from_profile(options)
 
 	local result = begin_crawl({
 		root = steamid,
-		max_depth = cfg.last_max_depth or 2,
-		unlimited = cfg.last_unlimited == true,
-		node_budget = cfg.last_node_budget or 400,
-		friends_per_node = cfg.last_friends_per_node or 0,
+		max_depth = cfg.last_max_depth,
+		unlimited = cfg.last_unlimited,
+		node_budget = cfg.last_node_budget,
+		friends_per_node = cfg.last_friends_per_node,
 	})
 
 	local decoded = json.decode(result)

@@ -6,6 +6,7 @@ import {
 	getConfig,
 	getTree,
 	resolveAccount,
+	saveOptions,
 	setApiKey,
 	startCrawl,
 	stopCrawl,
@@ -45,10 +46,11 @@ export function FriendsTreePage() {
 	const [keyInput, setKeyInput] = useState('');
 	const [rootInput, setRootInput] = useState('');
 	const [bounded, setBounded] = useState(true);
-	const [depth, setDepth] = useState(2);
-	const [budget, setBudget] = useState(400);
+	const [depth, setDepth] = useState(3);
+	const [budget, setBudget] = useState(5000);
 	const [friendsCap, setFriendsCap] = useState(0);
 	const [notice, setNotice] = useState('');
+	const [settingsLoaded, setSettingsLoaded] = useState(false);
 	const [selected, setSelected] = useState<string | null>(null);
 	const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
@@ -75,9 +77,29 @@ export function FriendsTreePage() {
 		getConfig().then((cfg) => {
 			setHasKey(cfg.has_key);
 			setRootInput(cfg.last_root || currentUserSteamId());
+			// The controls come back where they were left, and that is also what
+			// a crawl started from a profile page walks with.
+			setDepth(cfg.last_max_depth);
+			setBounded(!cfg.last_unlimited);
+			setBudget(cfg.last_node_budget);
+			setFriendsCap(cfg.last_friends_per_node);
+			setSettingsLoaded(true);
 		});
 		getTree().then(setState);
 	}, []);
+
+	// Persist the settings as they change, so the profile-page button never
+	// walks with a stale depth or budget. Skipped until the saved ones are in,
+	// which would otherwise overwrite them with the defaults above.
+	useEffect(() => {
+		if (!settingsLoaded) return;
+		void saveOptions({
+			max_depth: depth,
+			unlimited: !bounded,
+			node_budget: budget,
+			friends_per_node: friendsCap,
+		});
+	}, [settingsLoaded, depth, bounded, budget, friendsCap]);
 
 	// A crawl started from a Steam profile page runs backend-side without the
 	// page knowing: adopt its root and start polling again.
