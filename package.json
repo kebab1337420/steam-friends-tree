@@ -1,0 +1,24 @@
+{
+  "name": "steam-friends-tree",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "postinstall": "node scripts/ensure-ttc.mjs",
+    "dev": "millennium-ttc --build dev",
+    "build": "millennium-ttc --build prod",
+    "typecheck": "tsc --noEmit && tsc -p webkit/tsconfig.json",
+    "test": "luajit tests/crawler.test.lua && npm run test:layout",
+    "test:layout": "esbuild frontend/layout.ts --bundle --format=esm --outfile=tests/.layout.build.mjs --log-level=error && node tests/layout.test.mjs"
+  },
+  "dependencies": {
+    "@steambrew/client": "^5.8.5",
+    "@steambrew/webkit": "^5.8.4"
+  },
+  "devDependencies": {
+    "@steambrew/ttc": "^3.3.7",
+    "@types/react": "^18.3.3",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.4.5"
+  }
+}

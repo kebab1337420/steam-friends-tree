@@ -1,0 +1,10 @@
+{
+    "$schema": "https://raw.githubusercontent.com/SteamClientHomebrew/Millennium/main/src/sys/plugin-schema.json",
+
+    "name": "steam-friends-tree",
+    "common_name": "Steam Friends Tree",
+    "description": "Explore le graphe d'amis Steam sous forme d'arbre : racine au choix, profondeur bornee ou exploration ouverte.",
+    "version": "1.0.0",
+    "author": "Kebaboss",
+    "backendType": "lua"
+}
