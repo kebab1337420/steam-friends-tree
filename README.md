@@ -10,16 +10,26 @@ ends.
 Millennium has to be installed first — see
 [steambrew.app](https://steambrew.app) for its own installer.
 
-Grab the archive from the [latest release](../../releases/latest) and unpack it
-into `<Steam>/millennium/plugins/steam-friends-tree`, or build it yourself:
+Grab the archive from the [latest release](../../releases/latest), unpack it
+anywhere, close Steam and run `install.bat`. It finds Steam in the registry,
+copies the plugin into `<Steam>/millennium/plugins/steam-friends-tree` and
+leaves `config.json` — the Web API key and the saved settings — alone. A Steam
+installed somewhere unusual goes in as an argument:
+
+```bat
+install.bat "D:\Games\Steam"
+```
+
+Run from a clone instead, `install.bat` builds the bundles with npm first. To
+build by hand:
 
 ```sh
 npm install
 npm run build      # writes .millennium/Dist/index.js and webkit.js
 ```
 
-Copy the folder to `<Steam>/millennium/plugins/steam-friends-tree` — the manifest,
-`backend/` and `.millennium/Dist/` are what matter — restart Steam,
+Then copy the folder to `<Steam>/millennium/plugins/steam-friends-tree` — the
+manifest, `backend/` and `.millennium/Dist/` are what matter — restart Steam,
 enable the plugin in Millennium's settings. The tree gets its own entry — "Arbre des
 amis" — in the plugin navigation.
 
@@ -120,6 +130,7 @@ up to the root.
 
 ```
 plugin.json            Millennium manifest (Lua backend)
+install.bat            copies the plugin into the Steam install it finds
 backend/main.lua       breadth-first crawler, Web API calls, exposed methods
 backend/export_template.html  standalone page the HTML export is built from
 frontend/index.tsx     plugin definition and navigation entry
