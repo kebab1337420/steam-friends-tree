@@ -23,7 +23,7 @@ local API = "https://api.steampowered.com"
 -- Hard ceilings, whatever the UI asks for. An unbounded crawl of the friend
 -- graph never terminates on its own, so the node budget is what actually stops
 -- it.
-local MAX_NODE_BUDGET = 20000
+local MAX_NODE_BUDGET = 50000
 local MAX_DEPTH_BUDGET = 12
 -- Used when a crawl arrives without settings, typically from a profile page on
 -- a fresh install. A depth of 2 with a budget of 400 fills up on the root's own

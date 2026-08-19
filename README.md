@@ -46,7 +46,7 @@ so its results never leak into the new tree.
 - **Sans fin** — no depth limit. The friend graph has no natural end, so the
   crawl runs until the account budget is spent or you press Stop.
 
-Both modes are bounded by the account budget (default 5000, hard ceiling 20000)
+Both modes are bounded by the account budget (default 5000, hard ceiling 50000)
 and, optionally, by a cap on friends kept per account. The budget is the limit
 that usually bites first: at 400 accounts a crawl of depth 2 is spent on the
 root's own friends and never reaches the second level, so raise it before

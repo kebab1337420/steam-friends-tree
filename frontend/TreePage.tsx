@@ -499,7 +499,7 @@ export function FriendsTreePage() {
 						className="sft-input"
 						type="number"
 						min={1}
-						max={20000}
+						max={50000}
 						value={budget}
 						onChange={(e) => setBudget(Math.max(1, Number(e.currentTarget.value) || 1))}
 					/>
