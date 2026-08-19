@@ -31,6 +31,58 @@ const EMPTY: TreeState = {
 	export_opened: false,
 };
 
+const STORE_KEY = 'sft.options';
+
+interface StoredOptions {
+	max_depth: number;
+	unlimited: boolean;
+	node_budget: number;
+	friends_per_node: number;
+}
+
+const DEFAULT_OPTIONS: StoredOptions = {
+	max_depth: 3,
+	unlimited: false,
+	node_budget: 5000,
+	friends_per_node: 0,
+};
+
+/** A finite number, or the fallback: an older backend answers without these. */
+function numberOr(value: unknown, fallback: number): number {
+	const parsed = Number(value);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+/** Same, for the friend cap, where 0 is a meaningful value ("keep them all"). */
+function countOr(value: unknown, fallback: number): number {
+	const parsed = Number(value);
+	return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function readLocalOptions(): StoredOptions {
+	try {
+		const raw = window.localStorage.getItem(STORE_KEY);
+		if (!raw) return DEFAULT_OPTIONS;
+		const parsed = JSON.parse(raw) as Partial<StoredOptions>;
+		return {
+			max_depth: numberOr(parsed.max_depth, DEFAULT_OPTIONS.max_depth),
+			unlimited: parsed.unlimited === true,
+			node_budget: numberOr(parsed.node_budget, DEFAULT_OPTIONS.node_budget),
+			friends_per_node: countOr(parsed.friends_per_node, 0),
+		};
+	} catch {
+		return DEFAULT_OPTIONS;
+	}
+}
+
+function writeLocalOptions(options: StoredOptions): void {
+	try {
+		window.localStorage.setItem(STORE_KEY, JSON.stringify(options));
+	} catch {
+		// A blocked store only costs the fallback, never the crawl.
+	}
+}
+
 const POLL_MS = 900;
 /** Past this many accounts the SVG scene stops being comfortable to drive. */
 const HEAVY_BUDGET = 2000;
@@ -46,8 +98,8 @@ export function FriendsTreePage() {
 	const [keyInput, setKeyInput] = useState('');
 	const [rootInput, setRootInput] = useState('');
 	const [bounded, setBounded] = useState(true);
-	const [depth, setDepth] = useState(3);
-	const [budget, setBudget] = useState(5000);
+	const [depth, setDepth] = useState(DEFAULT_OPTIONS.max_depth);
+	const [budget, setBudget] = useState(DEFAULT_OPTIONS.node_budget);
 	const [friendsCap, setFriendsCap] = useState(0);
 	const [notice, setNotice] = useState('');
 	const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -74,30 +126,51 @@ export function FriendsTreePage() {
 	}, []);
 
 	useEffect(() => {
-		getConfig().then((cfg) => {
-			setHasKey(cfg.has_key);
-			setRootInput(cfg.last_root || currentUserSteamId());
-			// The controls come back where they were left, and that is also what
-			// a crawl started from a profile page walks with.
-			setDepth(cfg.last_max_depth);
-			setBounded(!cfg.last_unlimited);
-			setBudget(cfg.last_node_budget);
-			setFriendsCap(cfg.last_friends_per_node);
-			setSettingsLoaded(true);
-		});
+		// Two places hold the settings: the backend config, which is what a crawl
+		// started from a profile page reads, and the browser store, which still
+		// answers when the backend is an older build without them.
+		const local = readLocalOptions();
+		getConfig()
+			.then((cfg) => {
+				setHasKey(cfg.has_key);
+				setRootInput(cfg.last_root || currentUserSteamId());
+				// The controls come back where they were left.
+				const saved = {
+					max_depth: numberOr(cfg.last_max_depth, local.max_depth),
+					unlimited: typeof cfg.last_unlimited === 'boolean' ? cfg.last_unlimited : local.unlimited,
+					node_budget: numberOr(cfg.last_node_budget, local.node_budget),
+					friends_per_node: countOr(cfg.last_friends_per_node, local.friends_per_node),
+				};
+				setDepth(saved.max_depth);
+				setBounded(!saved.unlimited);
+				setBudget(saved.node_budget);
+				setFriendsCap(saved.friends_per_node);
+			})
+			.catch(() => {
+				setDepth(local.max_depth);
+				setBounded(!local.unlimited);
+				setBudget(local.node_budget);
+				setFriendsCap(local.friends_per_node);
+			})
+			// Saving starts only once the stored values are in, so they are never
+			// overwritten by the defaults the controls start on.
+			.then(() => setSettingsLoaded(true));
 		getTree().then(setState);
 	}, []);
 
 	// Persist the settings as they change, so the profile-page button never
-	// walks with a stale depth or budget. Skipped until the saved ones are in,
-	// which would otherwise overwrite them with the defaults above.
+	// walks with a stale depth or budget.
 	useEffect(() => {
 		if (!settingsLoaded) return;
-		void saveOptions({
+		const options = {
 			max_depth: depth,
 			unlimited: !bounded,
 			node_budget: budget,
 			friends_per_node: friendsCap,
+		};
+		writeLocalOptions(options);
+		void saveOptions(options).catch(() => {
+			setNotice("Reglages gardes pour cette page seulement : redemarre Steam pour que le bouton des pages de profil les voie aussi.");
 		});
 	}, [settingsLoaded, depth, bounded, budget, friendsCap]);
 

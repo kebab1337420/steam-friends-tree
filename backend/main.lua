@@ -515,6 +515,10 @@ function save_options(options)
 	cfg.last_node_budget = clean.node_budget
 	cfg.last_friends_per_node = clean.friends_per_node
 	write_config(cfg)
+	logger:info("settings saved: depth " .. clean.max_depth ..
+		", unlimited " .. tostring(clean.unlimited) ..
+		", budget " .. clean.node_budget ..
+		", friend cap " .. clean.friends_per_node)
 	return json.encode({ ok = true })
 end
 
